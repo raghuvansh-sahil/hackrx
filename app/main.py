@@ -5,7 +5,9 @@ from pydantic import BaseModel, HttpUrl
 from typing import List, Union
 from utils import download_file, extract_text_from_file
 from ai import AI
+from dotenv import load_dotenv
 
+load_dotenv()
 app = FastAPI()
 gemini_model = None
 
@@ -19,7 +21,7 @@ class HackRXResponse(BaseModel):
 @app.on_event("startup")
 def on_startup():
     global gemini_model
-    genai.configure(api_key='AIzaSyCn_qLK6GuFHcACihDgS9xaQ_OTSwyQylg')
+    genai.configure(api_key=os.getenv('API_KEY'))
     gemini_model = genai.GenerativeModel('gemini-2.0-flash-lite')
 
 @app.post("/hackrx/run", response_model=HackRXResponse)
