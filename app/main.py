@@ -3,8 +3,8 @@ import google.generativeai as genai
 from fastapi import FastAPI
 from pydantic import BaseModel, HttpUrl
 from typing import List, Union
-from utils import download_file, extract_text_from_file
-from ai import AI
+from app.utils import download_file, extract_text_from_file
+from app.ai import AI
 from dotenv import load_dotenv
 
 load_dotenv()
