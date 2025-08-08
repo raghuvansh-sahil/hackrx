@@ -2,8 +2,8 @@ import os
 import tempfile
 from fastapi import HTTPException
 import requests
-import fitz
 import docx
+import PyPDF2
 from email import policy
 from email.parser import BytesParser
 
@@ -17,27 +17,25 @@ def download_file(url: str) -> str:
     temp_file.close()
     return temp_file.name
 
-from urllib.parse import urlparse
-
 def extract_text_from_file(filepath: str) -> str:
-    clean_path = filepath.split("?")[0]  
+    clean_path = filepath.split("?")[0]
     ext = os.path.splitext(clean_path)[-1].lower()
 
     if ext == ".pdf":
         text = ""
-        pdf_doc = fitz.open(filepath)
-        for page in pdf_doc:
-            text += page.get_text()
+        with open(filepath, "rb") as file:
+            reader = PyPDF2.PdfReader(file)
+            for page in reader.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text
         return text
-    
     elif ext == ".docx":
         doc = docx.Document(filepath)
         return "\n".join([para.text for para in doc.paragraphs if para.text.strip()])
-
     elif ext in (".eml", ".email"):
         with open(filepath, 'rb') as f:
             msg = BytesParser(policy=policy.default).parse(f)
         return msg.get_body(preferencelist=('plain')).get_content()
-
     else:
         raise HTTPException(status_code=400, detail="Unsupported file type. Allowed: pdf, docx, email")

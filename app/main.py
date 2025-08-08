@@ -20,7 +20,7 @@ class HackRXResponse(BaseModel):
 def on_startup():
     global gemini_model
     genai.configure(api_key='AIzaSyCn_qLK6GuFHcACihDgS9xaQ_OTSwyQylg')
-    gemini_model = genai.GenerativeModel('gemini-1.5-pro')
+    gemini_model = genai.GenerativeModel('gemini-2.0-flash-lite')
 
 @app.post("/hackrx/run", response_model=HackRXResponse)
 async def hackrx_run(payload: HackRXRequest):
