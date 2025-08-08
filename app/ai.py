@@ -1,43 +1,40 @@
-import faiss
-from sentence_transformers import SentenceTransformer
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
 
 class AI:
-    def __init__(self, gemini_model, embed_model_name="all-MiniLM-L6-v2"):
+    def __init__(self, gemini_model):
         self.model = gemini_model
-        self.embedder = SentenceTransformer(embed_model_name)
         self.clauses = []
-        self.embeddings = None
-        self.index = None
+        self.vectorizer = None
+        self.tfidf_matrix = None
 
-    def split_into_clauses(self, text, min_length):
+    def split_into_clauses(self, text, min_length=100):
+        # Split by double newlines, or make chunking smarter if needed
         raw_chunks = [p.strip() for p in text.split("\n\n") if p.strip()]
         return [chunk for chunk in raw_chunks if len(chunk) >= min_length]
     
     def build_index_from_file(self, full_text):
-        self.clauses = self.split_into_clauses(full_text, min_length=512)
-        self.embeddings = self.embedder.encode(self.clauses, batch_size=1024, show_progress_bar=True, convert_to_numpy=True)
-        self.embeddings = self.embeddings.astype('float32')
-
-        dim = self.embeddings.shape[1]
-        self.index = faiss.IndexFlatL2(dim)
-        self.index.add(self.embeddings)
+        # Use smaller min_length for more/finer chunks if you want even more speed but less context
+        self.clauses = self.split_into_clauses(full_text, min_length=100)
+        self.vectorizer = TfidfVectorizer().fit(self.clauses)
+        self.tfidf_matrix = self.vectorizer.transform(self.clauses)
 
     def semantic_search(self, query, top_k=3):
-        query_vec = self.embedder.encode([query], convert_to_numpy=True).astype('float32')
-        D, I = self.index.search(query_vec, top_k)
+        query_vec = self.vectorizer.transform([query])
+        sim_scores = cosine_similarity(query_vec, self.tfidf_matrix)[0]
+        top_indices = np.argsort(sim_scores)[::-1][:top_k]
         results = []
-        for idx, dist in zip(I[0], D[0]):
-            if idx < len(self.clauses):
-                results.append({"clause": self.clauses[idx], "distance": float(dist)})
+        for idx in top_indices:
+            results.append({"clause": self.clauses[idx], "distance": 1 - sim_scores[idx]})
         return results
 
     def answer_query(self, questions, top_k=3):
         answers = []
-
         for question in questions:
             matches = self.semantic_search(question, top_k=top_k)
             context = "\n\n".join([f"Clause:\n{m['clause']}" for m in matches])
-
+            
             prompt = f"""
                 Role: You are a specialised expert for answering questions about insurance, legal, HR, or compliance documents.
 
@@ -58,19 +55,13 @@ class AI:
 
                 User Query:
                 {question}
-            """
-
+            """.strip()
 
             response = self.model.generate_content(prompt)
             answer = response.text.strip()
-
-            closest_distance = matches[0]["distance"] if matches else 0.0
-            confidence = max(0.0, 1.0 - closest_distance / 10.0)
-
             answers.append(answer)
 
         return answers
-        
 
     def process_and_answer(self, full_text, questions, top_k=3):
         self.build_index_from_file(full_text)
