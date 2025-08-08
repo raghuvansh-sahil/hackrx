@@ -24,7 +24,7 @@ def on_startup():
     genai.configure(api_key=os.getenv('API_KEY'))
     gemini_model = genai.GenerativeModel('gemini-2.0-flash-lite')
 
-@app.post("api/v1/hackrx/run", response_model=HackRXResponse)
+@app.post("/api/v1/hackrx/run", response_model=HackRXResponse)
 async def hackrx_run(payload: HackRXRequest):
     doc_urls = payload.documents if isinstance(payload.documents, list) else [payload.documents]
 
